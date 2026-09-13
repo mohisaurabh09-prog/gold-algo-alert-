@@ -98,4 +98,5 @@ def check_market():
 
 
 if __name__ == "__main__":
-  check_market()
+    send_telegram("🚀 GitHub Algo Live! Cron successfully ran and checked Gold market.")
+    check_market()
