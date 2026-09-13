@@ -1,15 +1,10 @@
 import datetime
-import time
 import pandas as pd
 import requests
 import yfinance as yf
 
 BOT_TOKEN = "8974475971:AAH1xec2QKZKiCiNySQG_8D7tCyxqo_tmLQ"
 CHAT_ID = "8048497436"
-
-last_signal = ""
-today_trade_taken = False
-current_day = None
 
 
 def send_telegram(message):
@@ -22,20 +17,14 @@ def send_telegram(message):
 
 
 def check_market():
-  global last_signal, today_trade_taken, current_day
-
   now = datetime.datetime.now(datetime.timezone.utc)
   today_str = now.strftime("%Y-%m-%d")
-
-  if current_day != today_str:
-    current_day = today_str
-    today_trade_taken = False
-    last_signal = ""
 
   # Gold 5-minute data fetch
   try:
     df = yf.download("GC=F", period="2d", interval="5m", progress=False)
     if df.empty or len(df) < 50:
+      print("Data nahi mila ya insufficient bars.")
       return
   except Exception as e:
     print(f"Data fetch error: {e}")
@@ -50,24 +39,25 @@ def check_market():
   asia_data = df[asia_mask]
 
   if len(asia_data) == 0:
+    print("Asian session data abhi complete nahi hua.")
     return
 
   asia_high = float(asia_data["High"].max())
   asia_low = float(asia_data["Low"].min())
 
   # London / NY Active Check (08:00 UTC ke baad)
-  if now.hour < 8 or today_trade_taken:
+  if now.hour < 8:
+    print("Abhi Asian session chal raha hai, London open ka wait karo.")
     return
 
-  recent_candles = df.tail(10)
+  recent_candles = df.tail(5)
   latest_candle = recent_candles.iloc[-1]
   curr_high = float(latest_candle["High"])
   curr_low = float(latest_candle["Low"])
   curr_close = float(latest_candle["Close"])
 
   # Bullish Sweep + FVG check
-  if curr_low < asia_low and curr_close > asia_low and last_signal != "BUY":
-    # 3-candle FVG detection
+  if curr_low < asia_low and curr_close > asia_low:
     c1_high = float(recent_candles.iloc[-3]["High"])
     c3_low = float(recent_candles.iloc[-1]["Low"])
     if c3_low > c1_high:
@@ -82,15 +72,11 @@ def check_market():
           f"_Phone me Exness khol kar execute karein!_"
       )
       send_telegram(msg)
-      last_signal = "BUY"
-      today_trade_taken = True
+      print("Buy Alert Sent!")
+      return
 
   # Bearish Sweep + FVG check
-  elif (
-      curr_high > asia_high
-      and curr_close < asia_high
-      and last_signal != "SELL"
-  ):
+  if curr_high > asia_high and curr_close < asia_high:
     c1_low = float(recent_candles.iloc[-3]["Low"])
     c3_high = float(recent_candles.iloc[-1]["High"])
     if c3_high < c1_low:
@@ -105,15 +91,11 @@ def check_market():
           f"_Phone me Exness khol kar execute karein!_"
       )
       send_telegram(msg)
-      last_signal = "SELL"
-      today_trade_taken = True
+      print("Sell Alert Sent!")
+      return
+
+  print("No trade condition met right now.")
 
 
 if __name__ == "__main__":
-  send_telegram("🚀 *24/7 Cloud Bot Online!* Laptop band hone par bhi alerts aate rahenge.")
-  while True:
-    try:
-      check_market()
-    except Exception as err:
-      print(f"Loop error: {err}")
-    time.sleep(60)  # Har 60 second me market check karega
+  check_market()
