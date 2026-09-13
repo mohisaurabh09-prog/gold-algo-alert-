@@ -1,0 +1,27 @@
+name: Gold Algo Cron
+
+on:
+  schedule:
+    # Har 5 minute me background me execute hoga
+    - cron: '*/5 * * * *'
+  workflow_dispatch: # Manual test run button ke liye
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run Market Check
+        run: |
+          python main.py
